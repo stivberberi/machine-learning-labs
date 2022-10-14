@@ -1,3 +1,4 @@
+from cProfile import label
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -42,7 +43,7 @@ class LinearRegressionModelling():
             self.models[m]['w'] = self.train_w(
                 self.models[m]['X_m'], self.t_train)
 
-    def generate_X_m(M: int, X):
+    def generate_X_m(self, M: int, X):
         '''
         Code to generate matrixes for M=0 to M=9 dimensions.
         Based on the M inputted, the x_train matrix will be repeatedly raised to a power from 1 to M and
@@ -57,7 +58,7 @@ class LinearRegressionModelling():
 
         return X_m
 
-    def train_w(X, t):
+    def train_w(self, X, t):
         '''
         Calculate the weights when training a set of examples for a given target set
         '''
@@ -70,7 +71,7 @@ class LinearRegressionModelling():
 
         return w
 
-    def calc_error(X, w, t):
+    def calc_error(self, X, w, t):
         '''
         Calculate the error (training or validation) based on given training data, weights,
         and a target set (training or validation)
@@ -78,20 +79,37 @@ class LinearRegressionModelling():
         num_rows, num_col = np.shape(X)  # get the number of examples
         error = (1 / num_col) * (X*w - t).T * (X*w - t)
 
-    def generate_model_plot(model, X_valid, t_train, t_valid):
+    def generate_model_plot(self, m: int):
         '''
         Generates a plot for a model, calculating (and plotting) the training and validation error as well
         '''
         fig = plt.figure()
         # 111 to specify that 1x1 subplots are on the graph
         axis = fig.add_subplot(111)
-
-        f_true_x = np.arange(0, 10, 0.1)
-        f_true_y = np.sin(f_true_x)
+        f_true_x = np.arange(0, 1, 0.01)
+        f_true_y = np.sin(4*np.pi*f_true_x)
         # True plot will be in red
-        axis.scatter(f_true_x, f_true_y, c='r', label='f_true')
+        axis.plot(f_true_x, f_true_y, 'r', label='f_true')
 
-        plt.show()
+        # plot validation set as blue
+        axis.plot(self.X_valid, self.t_valid,
+                  'bo', label='Validation Set')
+        # plot validation set
+        axis.plot(self.X_train, self.t_train,
+                  'go', label='Training Set')
+
+        # plot predicted function; get the model by the m index (convert to list so we can index by number)
+        model_index = list(self.models)[m]
+        X_m = self.models[model_index]['X_m']
+        w = self.models[model_index]['w']
+        f_predict = np.dot(X_m, w)
+        axis.plot(self.X_train, f_predict, 'y', label='Predicted output')
+
+        plt.title(f'Hyperparamater M{m} Plot')
+        plt.xlabel('X')
+        plt.ylabel('f(x)')
+        plt.legend(loc='upper right')
+        fig.savefig(f'figures/M{m}.png')
 
 
 def main():
@@ -99,6 +117,9 @@ def main():
     Main function that uses the linear model to generate plots
     '''
     lm = LinearRegressionModelling(seed=2350)
+    lm.train_model()
+    for i in range(len(lm.models)):
+        lm.generate_model_plot(m=i)
 
 
 main()
