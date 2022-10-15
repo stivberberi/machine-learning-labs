@@ -40,8 +40,8 @@ class LinearRegressionModelling():
         for m in self.models:
             self.models[m]['X_m'] = self.generate_X_m(i, self.X_train)
             i += 1
-            self.models[m]['w'] = self.train_w(
-                self.models[m]['X_m'], self.t_train)
+            self.models[m]['w'] = self.train_w(self.models[m]['X_m'], 
+                                               self.t_train)
 
     def generate_X_m(self, M: int, X):
         '''
@@ -62,12 +62,15 @@ class LinearRegressionModelling():
         '''
         Calculate the weights when training a set of examples for a given target set
         '''
-        num_rows, num_col = np.shape(X)  # get the number of examples
+        t = np.array([t]).T
         XTX = np.dot(X.T, X)
         if np.linalg.det(XTX) == 0:
+            num_rows, num_col = np.shape(X)  # get the number of examples
             w = np.zeros((num_rows, 1))
         else:
-            w = (np.linalg.inv(XTX)) * np.dot(X.T, t)
+            a = np.linalg.inv(XTX)
+            b = np.dot(X.T, t)
+            w = np.dot(a,b)
 
         return w
 
@@ -76,14 +79,19 @@ class LinearRegressionModelling():
         Calculate the error (training or validation) based on given training data, weights,
         and a target set (training or validation)
         '''
+        t = np.array([t]).T
         num_rows, num_col = np.shape(X)  # get the number of examples
-        error = (1 / num_col) * (X*w - t).T * (X*w - t)
+        Xw = np.dot(X, w)
+        error = (1 / num_rows) * np.dot((Xw - t).T, (Xw - t))
+
+        return error
 
     def generate_model_plot(self, m: int):
         '''
         Generates a plot for a model, calculating (and plotting) the training and validation error as well
         '''
-        fig = plt.figure()
+        # m is used to act as a unique identifier for the figure so we don't add data to the same plot every time
+        fig = plt.figure(m)
         # 111 to specify that 1x1 subplots are on the graph
         axis = fig.add_subplot(111)
         f_true_x = np.arange(0, 1, 0.01)
@@ -109,6 +117,7 @@ class LinearRegressionModelling():
         plt.xlabel('X')
         plt.ylabel('f(x)')
         plt.legend(loc='upper right')
+
         fig.savefig(f'figures/M{m}.png')
 
 
@@ -120,6 +129,34 @@ def main():
     lm.train_model()
     for i in range(len(lm.models)):
         lm.generate_model_plot(m=i)
+
+    # Get training and validation error
+    error_fig = plt.figure('error')
+    axis = error_fig.add_subplot(111)
+    x = [0,1,2,3,4,5,6,7,8,9]
+    train_err = []
+    valid_err = []
+
+    i = 0
+    for model in lm.models:
+        err_t = lm.calc_error(X=lm.models[model]['X_m'],
+                            w=lm.models[model]['w'],
+                            t=lm.t_train)
+        print(err_t)
+        # X_m_val = lm.generate_X_m(M=i, X=lm.X_valid)
+        # err_v = lm.calc_error(X=X_m_val,
+        #                       w=lm.models[model]['w'],
+        #                       t=lm.t_valid)
+        # valid_err.append(err_v)
+        train_err.append(err_t[0][0])
+
+    axis.plot(x, train_err, 'r', label='Training Error')
+    axis.plot(x, valid_err, 'b', label='Validation Error')
+    plt.title('Training and Validation Error')
+    plt.xlabel('M')
+    plt.ylabel('Error (Mean squared error)')
+    plt.legend(loc='upper right')
+    error_fig.savefig('figures/ErrorPlot.png')
 
 
 main()
