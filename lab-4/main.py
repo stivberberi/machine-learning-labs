@@ -18,7 +18,7 @@ def setup_logger():
     """Sets up the root logger to save all data for this assignment
     """
     # setup logger for writing to file
-    logging.basicConfig(filename='lab_2.log', filemode='w',
+    logging.basicConfig(filename='lab_4.log', filemode='w',
                         level=logging.INFO, format='%(message)s')
     # add a stream handler to also send the output to stdout
     logging.getLogger().addHandler(logging.StreamHandler())
