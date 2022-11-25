@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import logging
-from sklearn import tree, model_selection
+from sklearn import tree, model_selection, ensemble
 import math
 
 '''
@@ -126,7 +126,100 @@ def generate_decision_tree_classifier(X, t):
     return model
 
 
-def get_bagging_classifiers(X, t):
+def get_bagging_classifier(X, t, num_classifiers):
+    """Trains a bagging classifier on the training data and returns the model.
+
+    Args:
+        X (numpy.array): X parameter matrix
+        t (numpy.array): t target matrix
+        num_classifiers (int): Number of classifiers to use in the bagging classifier
+
+    Returns:
+        sklearn.ensemble.BaggingClassifier: Trained bagging classifier
+    """
+
+    classifier = ensemble.BaggingClassifier(n_estimators=num_classifiers)
+    classifier.fit(X, t)
+
+    return classifier
+
+
+def get_random_forest_classifier(X, t, num_classifiers):
+    """Trains a random forest classifier on the training data and returns the model.
+
+    Args:
+        X (numpy.array): X parameter matrix
+        t (numpy.array): t target matrix
+        num_classifiers (int): Number of classifiers to use in the random forest classifier
+
+    Returns:
+        sklearn.ensemble.RandomForestClassifier: Trained random forest classifier
+    """
+
+    classifier = ensemble.RandomForestClassifier(n_estimators=num_classifiers)
+    classifier.fit(X, t)
+
+    return classifier
+
+
+def get_adaboost_classifier(X, t, num_classifiers):
+    """Trains an adaboost classifier on the training data and returns the model. 
+        Uses a decision stump as the base classifier.
+
+    Args:
+        X (numpy.array): X parameter matrix
+        t (numpy.array): t target matrix
+        num_classifiers (int): Number of classifiers to use in the adaboost classifier
+
+    Returns:
+        sklearn.ensemble.AdaBoostClassifier: Trained adaboost classifier
+    """
+
+    # automatically initializes decision stump base classifier with depth 1.
+    classifier = ensemble.AdaBoostClassifier(n_estimators=num_classifiers)
+    classifier.fit(X, t)
+
+    return classifier
+
+
+def get_adaboost_classifier_with_depth_10(X, t, num_classifiers):
+    """Trains an adaboost classifier on the training data and returns the model.
+        Uses a decision tree with depth 10 as the base classifier.
+
+    Args:
+        X (numpy.array): X parameter matrix
+        t (numpy.array): t target matrix
+        num_classifiers (int): Number of classifiers to use in the adaboost classifier
+
+    Returns:
+        sklearn.ensemble.AdaBoostClassifier: Trained adaboost classifier
+    """
+
+    classifier = ensemble.AdaBoostClassifier(
+        n_estimators=num_classifiers, base_estimator=tree.DecisionTreeClassifier(max_depth=10))
+    classifier.fit(X, t)
+
+    return classifier
+
+
+def get_adaboost_classifier_with_any_depth(X, t, num_classifiers):
+    """Trains an adaboost classifier on the training data and returns the model.
+        Uses a decision tree with any depth as the base classifier.
+
+    Args:
+        X (numpy.array): X parameter matrix
+        t (numpy.array): t target matrix
+        num_classifiers (int): Number of classifiers to use in the adaboost classifier
+
+    Returns:
+        sklearn.ensemble.AdaBoostClassifier: Trained adaboost classifier
+    """
+
+    classifier = ensemble.AdaBoostClassifier(
+        n_estimators=num_classifiers, base_estimator=tree.DecisionTreeClassifier())
+    classifier.fit(X, t)
+
+    return classifier
 
 
 def main():
@@ -137,6 +230,20 @@ def main():
     X_train, X_test, t_train, t_test = split_data(X, t)
 
     dt_model = generate_decision_tree_classifier(X_train, t_train)
+
+    # list of number of classifiers to use
+    num_classifiers = list(range(50, 2500, 50))
+
+    # arrays to store the test error for each number of classifiers
+    bagging_test_error = []
+    random_forest_test_error = []
+    adaboost_test_error = []
+    adaboost_test_error_depth_10 = []
+    adaboost_test_error_any_depth = []
+
+    # train classifiers
+    for num in num_classifiers:
+        bag_classifier = get_bagging_classifier(X_train, t_train, num)
 
 
 main()
