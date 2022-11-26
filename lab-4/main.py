@@ -1,7 +1,8 @@
+from sklearn import tree, model_selection, ensemble
+from multiprocessing import Process
 import pandas as pd
 import numpy as np
 import logging
-from sklearn import tree, model_selection, ensemble
 import math
 
 '''
@@ -126,7 +127,7 @@ def generate_decision_tree_classifier(X, t):
     return model
 
 
-def get_bagging_classifier(X, t, num_classifiers):
+def train_bagging_classifier(X, t, num_classifiers):
     """Trains a bagging classifier on the training data and returns the model.
 
     Args:
@@ -144,7 +145,7 @@ def get_bagging_classifier(X, t, num_classifiers):
     return classifier
 
 
-def get_random_forest_classifier(X, t, num_classifiers):
+def train_random_forest_classifier(X, t, num_classifiers):
     """Trains a random forest classifier on the training data and returns the model.
 
     Args:
@@ -162,7 +163,7 @@ def get_random_forest_classifier(X, t, num_classifiers):
     return classifier
 
 
-def get_adaboost_classifier(X, t, num_classifiers):
+def train_adaboost_classifier(X, t, num_classifiers):
     """Trains an adaboost classifier on the training data and returns the model. 
         Uses a decision stump as the base classifier.
 
@@ -182,7 +183,7 @@ def get_adaboost_classifier(X, t, num_classifiers):
     return classifier
 
 
-def get_adaboost_classifier_with_depth_10(X, t, num_classifiers):
+def train_adaboost_classifier_with_depth_10(X, t, num_classifiers):
     """Trains an adaboost classifier on the training data and returns the model.
         Uses a decision tree with depth 10 as the base classifier.
 
@@ -202,7 +203,7 @@ def get_adaboost_classifier_with_depth_10(X, t, num_classifiers):
     return classifier
 
 
-def get_adaboost_classifier_with_any_depth(X, t, num_classifiers):
+def train_adaboost_classifier_with_any_depth(X, t, num_classifiers):
     """Trains an adaboost classifier on the training data and returns the model.
         Uses a decision tree with any depth as the base classifier.
 
@@ -243,7 +244,15 @@ def main():
 
     # train classifiers
     for num in num_classifiers:
-        bag_classifier = get_bagging_classifier(X_train, t_train, num)
+        # run each classifier in a separate process to speed up training
+        bagging_process = Process(target=train_bagging_classifier, args=(
+            X_train, t_train, num, bagging_test_error))
+        random_forest_process = Process(target=train_random_forest_classifier, args=(
+            X_train, t_train, num, random_forest_test_error))
+        adaboost_process = Process(target=train_adaboost_classifier, args=(
+            X_train, t_train, num, adaboost_test_error))
+        adaboost_process_depth_10 = Process(target=train_adaboost_classifier_with_depth_10, args=(
+            X_train, t_train, num, adaboost_test_error_depth_10))
 
 
 main()
