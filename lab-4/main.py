@@ -1,5 +1,6 @@
-from sklearn import tree, model_selection, ensemble
-from multiprocessing import Process
+from sklearn import tree, model_selection, ensemble, metrics
+from multiprocessing import Process, Queue
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import logging
@@ -65,6 +66,23 @@ def split_data(X, t, test_size=0.33):
     return X_train, X_test, t_train, t_test
 
 
+def calc_test_error(y, t):
+    """Calculates the test error for the given y and t matrices
+
+    Args:
+        y (numpy.array): y matrix
+        t (numpy.array): t matrix
+
+    Returns:
+        float: Test error
+    """
+
+    accuracy = metrics.accuracy_score(t, y)
+    error = 1 - accuracy
+
+    return error
+
+
 def calc_dt_cross_validation_error(X, t, num_leaves):
     """Performs a k-fold cross validation algorithm on given X and t matrices
 
@@ -100,7 +118,7 @@ def calc_dt_cross_validation_error(X, t, num_leaves):
     return avg_error
 
 
-def generate_decision_tree_classifier(X, t):
+def train_decision_tree_classifier(X, t):
     """Trains a decision tree classifier on the training data and returns the model. Performs cross
     validation error calculation to find the best maximum number of leaves between 2 and 400.
 
@@ -110,11 +128,14 @@ def generate_decision_tree_classifier(X, t):
 
     Returns:
         sklearn.tree.DecisionTreeClassifier: Trained decision tree classifier
+        list: List of cross-validation errors for each number of leaves
     """
     best_error = (math.inf, 2)
+    cv_errors = []
     for max_leaves in range(2, 400):
         # get the cross validation error for the current max_leaves
         error = calc_dt_cross_validation_error(X, t, max_leaves)
+        cv_errors.append(error)
         if error < best_error[0]:
             best_error = (error, max_leaves)
 
@@ -124,103 +145,96 @@ def generate_decision_tree_classifier(X, t):
     model = tree.DecisionTreeClassifier(max_leaf_nodes=best_error[1])
     model.fit(X, t)
 
-    return model
+    return model, cv_errors
 
 
-def train_bagging_classifier(X, t, num_classifiers):
-    """Trains a bagging classifier on the training data and returns the model.
+def train_bagging_classifier(X, t, num_classifiers, X_test, t_test, queue):
 
-    Args:
-        X (numpy.array): X parameter matrix
-        t (numpy.array): t target matrix
-        num_classifiers (int): Number of classifiers to use in the bagging classifier
-
-    Returns:
-        sklearn.ensemble.BaggingClassifier: Trained bagging classifier
-    """
+    test_errors = queue.get()
 
     classifier = ensemble.BaggingClassifier(n_estimators=num_classifiers)
     classifier.fit(X, t)
 
-    return classifier
+    y = classifier.predict(X_test)
+    error = calc_test_error(y, t_test)
+    logging.info(
+        f'Bagging test error: {error} at {num_classifiers} classifiers')
+    test_errors.append(error)
+
+    queue.put(test_errors)
+
+    return
 
 
-def train_random_forest_classifier(X, t, num_classifiers):
-    """Trains a random forest classifier on the training data and returns the model.
+def train_random_forest_classifier(X, t, num_classifiers, X_test, t_test, queue):
 
-    Args:
-        X (numpy.array): X parameter matrix
-        t (numpy.array): t target matrix
-        num_classifiers (int): Number of classifiers to use in the random forest classifier
-
-    Returns:
-        sklearn.ensemble.RandomForestClassifier: Trained random forest classifier
-    """
-
+    test_errors = queue.get()
     classifier = ensemble.RandomForestClassifier(n_estimators=num_classifiers)
     classifier.fit(X, t)
 
-    return classifier
+    y = classifier.predict(X_test)
+    error = calc_test_error(y, t_test)
+    logging.info(
+        f'Random forest test error: {error} at {num_classifiers} classifiers')
+    test_errors.append(error)
+
+    queue.put(test_errors)
+
+    return
 
 
-def train_adaboost_classifier(X, t, num_classifiers):
-    """Trains an adaboost classifier on the training data and returns the model. 
-        Uses a decision stump as the base classifier.
+def train_adaboost_classifier(X, t, num_classifiers, X_test, t_test, queue):
 
-    Args:
-        X (numpy.array): X parameter matrix
-        t (numpy.array): t target matrix
-        num_classifiers (int): Number of classifiers to use in the adaboost classifier
-
-    Returns:
-        sklearn.ensemble.AdaBoostClassifier: Trained adaboost classifier
-    """
-
+    test_errors = queue.get()
     # automatically initializes decision stump base classifier with depth 1.
     classifier = ensemble.AdaBoostClassifier(n_estimators=num_classifiers)
     classifier.fit(X, t)
 
-    return classifier
+    y = classifier.predict(X_test)
+    error = calc_test_error(y, t_test)
+    logging.info(
+        f'Adaboost test error: {error} at {num_classifiers} classifiers')
+    test_errors.append(error)
+
+    queue.put(test_errors)
+
+    return
 
 
-def train_adaboost_classifier_with_depth_10(X, t, num_classifiers):
-    """Trains an adaboost classifier on the training data and returns the model.
-        Uses a decision tree with depth 10 as the base classifier.
+def train_adaboost_classifier_with_depth_10(X, t, num_classifiers, X_test, t_test, queue):
 
-    Args:
-        X (numpy.array): X parameter matrix
-        t (numpy.array): t target matrix
-        num_classifiers (int): Number of classifiers to use in the adaboost classifier
-
-    Returns:
-        sklearn.ensemble.AdaBoostClassifier: Trained adaboost classifier
-    """
-
+    test_errors = queue.get()
     classifier = ensemble.AdaBoostClassifier(
         n_estimators=num_classifiers, base_estimator=tree.DecisionTreeClassifier(max_depth=10))
     classifier.fit(X, t)
 
-    return classifier
+    y = classifier.predict(X_test)
+    error = calc_test_error(y, t_test)
+    logging.info(
+        f'Adaboost with depth 10 error: {error} at {num_classifiers} classifiers')
+    test_errors.append(error)
+
+    queue.put(test_errors)
+
+    return
 
 
-def train_adaboost_classifier_with_any_depth(X, t, num_classifiers):
-    """Trains an adaboost classifier on the training data and returns the model.
-        Uses a decision tree with any depth as the base classifier.
+def train_adaboost_classifier_with_any_depth(X, t, num_classifiers, X_test, t_test, queue):
 
-    Args:
-        X (numpy.array): X parameter matrix
-        t (numpy.array): t target matrix
-        num_classifiers (int): Number of classifiers to use in the adaboost classifier
-
-    Returns:
-        sklearn.ensemble.AdaBoostClassifier: Trained adaboost classifier
-    """
-
+    test_errors = queue.get()
     classifier = ensemble.AdaBoostClassifier(
         n_estimators=num_classifiers, base_estimator=tree.DecisionTreeClassifier())
     classifier.fit(X, t)
 
-    return classifier
+    y = classifier.predict(X_test)
+    error = calc_test_error(y, t_test)
+    logging.info(
+        f'Adaboost any depth error: {error} at {num_classifiers} classifiers')
+    test_errors.append(error)
+
+    queue.put(test_errors)
+
+    return
 
 
 def main():
@@ -230,10 +244,22 @@ def main():
     X, t = load_data()
     X_train, X_test, t_train, t_test = split_data(X, t)
 
-    dt_model = generate_decision_tree_classifier(X_train, t_train)
+    logging.info('Training decision tree classifier')
+    dt_model, cv_errors = train_decision_tree_classifier(X_train, t_train)
+    dt_test_errors = []
+    dt_error = calc_test_error(dt_model.predict(X_test), t_test)
+
+    # plot the cross validation errors
+    plt.figure(1)
+    plt.plot(range(2, 400), cv_errors)
+    plt.xlabel('Number of leaves')
+    plt.ylabel('Cross validation error')
+    plt.title('Cross validation error vs number of leaves')
+    plt.savefig('cross_validation_error_vs_num_leaves.png')
+    plt.show()
 
     # list of number of classifiers to use
-    num_classifiers = list(range(50, 2500, 50))
+    num_classifiers = list(range(50, 2550, 50))
 
     # arrays to store the test error for each number of classifiers
     bagging_test_error = []
@@ -242,17 +268,95 @@ def main():
     adaboost_test_error_depth_10 = []
     adaboost_test_error_any_depth = []
 
+    # queues to pass the test error list to the training functions
+    bagging_test_error_queue = Queue()
+    random_forest_test_error_queue = Queue()
+    adaboost_test_error_queue = Queue()
+    adaboost_test_error_depth_10_queue = Queue()
+    adaboost_test_error_any_depth_queue = Queue()
+
     # train classifiers
     for num in num_classifiers:
+        # Add dt_test_errors to the list... will be the same for every iteration
+        dt_test_errors.append(dt_error)
+
         # run each classifier in a separate process to speed up training
+        logging.info(f'Training bagging classifier with {num} classifiers')
         bagging_process = Process(target=train_bagging_classifier, args=(
-            X_train, t_train, num, bagging_test_error))
+            X_train, t_train, num, X_test, t_test, bagging_test_error_queue))
+        bagging_process.start()
+        bagging_test_error_queue.put(bagging_test_error)
+
+        logging.info(
+            f'Training random forest classifier with {num} classifiers')
         random_forest_process = Process(target=train_random_forest_classifier, args=(
-            X_train, t_train, num, random_forest_test_error))
+            X_train, t_train, num, X_test, t_test, random_forest_test_error_queue))
+        random_forest_process.start()
+        random_forest_test_error_queue.put(random_forest_test_error)
+
+        logging.info(
+            f'Training adaboost classifier with {num} classifiers')
         adaboost_process = Process(target=train_adaboost_classifier, args=(
-            X_train, t_train, num, adaboost_test_error))
-        adaboost_process_depth_10 = Process(target=train_adaboost_classifier_with_depth_10, args=(
-            X_train, t_train, num, adaboost_test_error_depth_10))
+            X_train, t_train, num, X_test, t_test, adaboost_test_error_queue))
+        adaboost_process.start()
+        adaboost_test_error_queue.put(adaboost_test_error)
+
+        logging.info(
+            f'Training adaboost classifier with {num} classifiers and depth 10')
+        adaboost_depth_10_process = Process(target=train_adaboost_classifier_with_depth_10, args=(
+            X_train, t_train, num, X_test, t_test, adaboost_test_error_depth_10_queue))
+        adaboost_depth_10_process.start()
+        adaboost_test_error_depth_10_queue.put(adaboost_test_error_depth_10)
+
+        logging.info(
+            f'Training adaboost classifier with {num} classifiers and any depth')
+        adaboost_any_depth_process = Process(target=train_adaboost_classifier_with_any_depth, args=(
+            X_train, t_train, num, X_test, t_test, adaboost_test_error_any_depth_queue))
+        adaboost_any_depth_process.start()
+        adaboost_test_error_any_depth_queue.put(adaboost_test_error_any_depth)
+
+        # wait for all queues to be filled
+        bagging_test_error = bagging_test_error_queue.get()
+        random_forest_test_error = random_forest_test_error_queue.get()
+        adaboost_test_error = adaboost_test_error_queue.get()
+        adaboost_test_error_depth_10 = adaboost_test_error_depth_10_queue.get()
+        adaboost_test_error_any_depth = adaboost_test_error_any_depth_queue.get()
+
+        # join the processes
+        bagging_process.join()
+        random_forest_process.join()
+        adaboost_process.join()
+        adaboost_depth_10_process.join()
+        adaboost_any_depth_process.join()
+
+    # log the test errors
+    logging.info(f'Bagging test errors: {bagging_test_error}')
+    logging.info(f'Random forest test errors: {random_forest_test_error}')
+    logging.info(f'Adaboost test errors: {adaboost_test_error}')
+    logging.info(
+        f'Adaboost depth 10 test errors: {adaboost_test_error_depth_10}')
+    logging.info(
+        f'Adaboost any depth test errors: {adaboost_test_error_any_depth}')
+    logging.info(f'Decision tree test errors: {dt_test_errors}')
+
+    # plot the test errors
+    plt.figure(2)
+    plt.plot(num_classifiers, bagging_test_error, label='Bagging')
+    plt.plot(num_classifiers, random_forest_test_error, label='Random Forest')
+    plt.plot(num_classifiers, adaboost_test_error, label='AdaBoost')
+    plt.plot(num_classifiers, adaboost_test_error_depth_10,
+             label='AdaBoost with depth 10')
+    plt.plot(num_classifiers, adaboost_test_error_any_depth,
+             label='AdaBoost with any depth')
+    plt.plot(num_classifiers, dt_test_errors, label='Decision Tree')
+    plt.xlabel('Number of classifiers')
+    plt.ylabel('Test error')
+    plt.title('Test error vs number of classifiers')
+    plt.legend()
+
+    plt.savefig('test_error.png')
+    plt.show()
 
 
-main()
+if __name__ == '__main__':
+    main()
