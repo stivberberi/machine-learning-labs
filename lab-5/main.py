@@ -1,47 +1,61 @@
 import numpy as np
 
-'''
-Neural network classifier from scratch with 2 hidden layers and n_1 n_2 neurons in each layer.
-Uses ReLU activation function for hidden layers. Stochastic gradient descent is used with 
-a learning rate of 0.005.
-'''
+
+def relu(x):
+    return np.maximum(0, x)
 
 
-def neural_network_classifier(X_train, y_train, X_test, y_test, n_1, n_2, epochs):
-    # Initialize weights and biases
-    W1 = np.random.randn(n_1, X_train.shape[0]) * 0.01
-    b1 = np.zeros((n_1, 1))
-    W2 = np.random.randn(n_2, n_1) * 0.01
-    b2 = np.zeros((n_2, 1))
-    W3 = np.random.randn(1, n_2) * 0.01
-    b3 = np.zeros((1, 1))
+def cross_entropy_loss(y_true, y_pred):
+    return -np.mean(y_true * np.log(y_pred))
 
-    # Initialize lists to store cost and accuracy
-    costs = []
-    train_acc = []
-    test_acc = []
 
-    for i in range(epochs):
-        # Forward propagation
-        Z1 = np.dot(W1, X_train) + b1
-        A1 = np.maximum(0, Z1)
-        Z2 = np.dot(W2, A1) + b2
-        A2 = np.maximum(0, Z2)
-        Z3 = np.dot(W3, A2) + b3
-        A3 = sigmoid(Z3)
+class NeuralNetwork:
+    def __init__(self, n1, n2):
+        # Initialize the network weights and biases with random values
+        self.w1 = np.random.randn(n1, X_train.shape[1])
+        self.b1 = np.zeros(n1)
+        self.w2 = np.random.randn(n2, n1)
+        self.b2 = np.zeros(n2)
+        self.w3 = np.random.randn(1, n2)
+        self.b3 = 0
 
-        # Compute cost
-        cost = compute_cost(A3, y_train)
+    def forward(self, x):
+        # Perform a forward pass through the network
+        z1 = x.dot(self.w1.T) + self.b1
+        a1 = relu(z1)
+        z2 = a1.dot(self.w2.T) + self.b2
+        a2 = relu(z2)
+        z3 = a2.dot(self.w3.T) + self.b3
+        a3 = sigmoid(z3)
+        return a3
 
-        # Backward propagation
-        dZ3 = A3 - y_train
-        dW3 = (1 / X_train.shape[1]) * np.dot(dZ3, A2.T)
-        db3 = (1 / X_train.shape[1]) * np.sum(dZ3, axis=1, keepdims=True)
-        dA2 = np.dot(W3.T, dZ3)
-        dZ2 = np.multiply(dA2, np.int64(A2 > 0))
-        dW2 = (1 / X_train.shape[1]) * np.dot(dZ2, A1.T)
-        db2 = (1 / X_train.shape[1]) * np.sum(dZ2, axis=1, keepdims=True)
-        dA1 = np.dot(W2.T, dZ2)
-        dZ1 = np.multiply(dA1, np.int64(A1 > 0))
-        dW1 = (1 / X_train.shape[1]) * np.dot(dZ1, X_train.T)
-        db1 = (1 / X_train.shape[1])
+    def train(self, X, y, learning_rate=0.005, num_epochs=100):
+        # Train the network using stochastic gradient descent
+        for epoch in range(num_epochs):
+            # Perform a forward pass through the network
+            y_pred = self.forward(X)
+
+            # Compute the loss
+            loss = cross_entropy_loss(y, y_pred)
+
+            # Print the current loss
+            print(f"Epoch {epoch+1}: Loss = {loss}")
+
+            # Perform a backward pass through the network
+            delta3 = y_pred - y
+            dw3 = (a2.T).dot(delta3)
+            db3 = np.sum(delta3)
+            delta2 = delta3.dot(self.w3) * (a2 > 0)
+            dw2 = (a1.T).dot(delta2)
+            db2 = np.sum(delta2)
+            delta1 = delta2.dot(self.w2) * (a1 > 0)
+            dw1 = (x.T).dot(delta1)
+            db1 = np.sum(delta1)
+
+            # Update the network weights and biases
+            self.w1 -= learning_rate * dw1
+            self.b1 -= learning_rate * db1
+            self.w2 -= learning_rate * dw2
+            self.b2 -= learning_rate * db2
+            self.w3 -= learning_rate * dw3
+            self.b3 -= learning_rate * db3
