@@ -65,11 +65,13 @@ class NeuralClassifier:
         dJdw2 = np.dot(self.a1.T, delta2)
 
         delta1 = np.dot(delta2, self.w2.T) * self.relu_derivative(self.a1)
+
+        regularization_term = 0.01 * np.sum(self.w1)
         dJdw1 = np.dot(X.T, delta1)
 
-        self.w1 += self.learning_rate * dJdw1
-        self.w2 += self.learning_rate * dJdw2
-        self.w3 += self.learning_rate * dJdw3
+        self.w1 += self.learning_rate * (dJdw1 + regularization_term)
+        self.w2 += self.learning_rate * (dJdw2 + regularization_term)
+        self.w3 += self.learning_rate * (dJdw3 + regularization_term)
 
     def train(self, X, y, X_val, y_val, num_epochs=100):
         # Train the network using stochastic gradient descent
