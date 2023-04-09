@@ -2,7 +2,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 from linear_interpolation import demosaic_linear_interpolation
-from linear_regresssion import train_model, generate_patch
+from linear_regresssion import train_model, generate_mosaic_patch
 
 
 def load_training_images():
@@ -28,7 +28,7 @@ def demosaic_image(image, model):
     for i in range(2, image.shape[0] - 2):
         for j in range(2, image.shape[1] - 2):
             # generate patches of size 5x5
-            patch = generate_patch(5, image, i, j)
+            patch = generate_mosaic_patch(5, image, i, j)
 
             # 4 patch cases based on pixel location and rggb bayer pattern
             if i % 2 == 0 and j % 2 == 0:
