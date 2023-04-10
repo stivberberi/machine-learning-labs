@@ -44,12 +44,12 @@ def generate_training_data(images: list):
     # Define all X matrices (8) as empty 2d np matrices
     # naming scheme is x_<pixel> where pixel is the color of the pixel
     # ex. for green, is either x_gb or x_gr depending on the row (blue or red row)
-    x_gb, x_gr, x_r, x_b = np.array((1, 25)), np.array(
-        (1, 25)), np.array((1, 25)), np.array((1, 25))
+    x_gb, x_gr, x_r, x_b = np.empty((1, 25)), np.empty(
+        (1, 25)), np.empty((1, 25)), np.empty((1, 25))
 
     # Same for y matrices
-    y_gb, y_gr, y_r, y_b = np.array((1, 1)), np.array(
-        (1, 1)), np.array((1, 1)), np.array((1, 1))
+    y_gb, y_gr, y_r, y_b = np.empty((1, 1)), np.empty(
+        (1, 1)), np.empty((1, 1)), np.empty((1, 1))
 
     for image in images:
         # loop through x,y coords but leave 2 pixels on each side for padding
@@ -61,26 +61,32 @@ def generate_training_data(images: list):
 
                 # 4 patch cases based on pixel location and rggb bayer pattern
                 if i % 2 == 0 and j % 2 == 0:
-                    # if matrixes only have one row, overwrite it
 
                     # both even, green pixel in blue row
                     x_gb = np.vstack((x_gb, flat_patch))
                     y_gb = np.vstack((y_gb, np.array([[image[i, j, 1]]])))
 
                 if i % 2 == 1 and j % 2 == 1:
+
                     # both odd, green pixel in red row
                     x_gr = np.vstack((x_gr, flat_patch))
                     y_gr = np.vstack((y_gr, np.array([[image[i, j, 1]]])))
 
                 if i % 2 == 0 and j % 2 == 1:
+
                     # even row, odd column, blue pixel
                     x_b = np.vstack((x_b, flat_patch))
                     y_b = np.vstack((y_b, np.array([[image[i, j, 2]]])))
 
                 if i % 2 == 1 and j % 2 == 0:
+
                     # odd row, even column, red pixel
                     x_r = np.vstack((x_r, flat_patch))
                     y_r = np.vstack((y_r, np.array([[image[i, j, 0]]])))
+
+    # remove the first row of zeros
+    x_gb, x_gr, x_r, x_b = x_gb[1:, :], x_gr[1:, :], x_r[1:, :], x_b[1:, :]
+    y_gb, y_gr, y_r, y_b = y_gb[1:, :], y_gr[1:, :], y_r[1:, :], y_b[1:, :]
 
     return x_gb, x_gr, x_r, x_b, y_gb, y_gr, y_r, y_b
 
@@ -102,8 +108,7 @@ def train_model(images: list):
     # green predictor coefficients
     a_g_r = np.matmul(np.linalg.inv(np.matmul(x_r.T, x_r)),
                       np.matmul(x_r.T, y_r))
-    a_g_r = np.linalg.lstsq(x_r, y_r, rcond=None)[0]
-    a_g_b = np.linalg.lstsq(x_b, y_b[:, :, 1], rcond=None)[0]
+    a_g_b = np.linalg.lstsq(x_b, y_b, rcond=None)[0]
 
     # blue predictor coefficients
     a_b_gb = np.linalg.lstsq(x_gb, y_gb, rcond=None)[0]
