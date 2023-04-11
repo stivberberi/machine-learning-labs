@@ -2,7 +2,8 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 from linear_interpolation import demosaic_linear_interpolation
-from linear_regresssion import train_model, generate_mosaic_patch
+from linear_regresssion import train_model
+from utils.generate_patches import generate_mosaic_patch_greyscale
 
 
 def load_training_images():
@@ -16,36 +17,6 @@ def load_training_images():
     return image
 
 
-def generate_mosaic_patch_2d(size, image, x, y):
-    """Generates a patch of size 'size' around the pixel at (x, y).
-
-    Args:
-        size (int): Size of the patch.
-        image (np.ndarray): Image to generate the patch from.
-        x (int): X coordinate of the pixel.
-        y (int): Y coordinate of the pixel.
-
-    Returns:
-        np.ndarray: Patch of size 'size' around the pixel at (x, y).
-    """
-    patch = np.zeros((size, size))
-    for i in range(size):
-        for j in range(size):
-            if i % 2 == 0 and j % 2 == 0:
-                patch[i, j] = image[x - size//2 + i,
-                                    y - size//2 + j]
-            if i % 2 == 1 and j % 2 == 1:
-                patch[i, j] = image[x - size//2 + i,
-                                    y - size//2 + j]
-            if i % 2 == 0 and j % 2 == 1:
-                patch[i, j] = image[x - size//2 +
-                                    i, y - size//2 + j]
-            if i % 2 == 1 and j % 2 == 0:
-                patch[i, j] = image[x - size//2 +
-                                    i, y - size//2 + j]
-    return patch
-
-
 def demosaic_image(image, model):
     """Demosaics the image using coeeficients from the linear regression model.
     """
@@ -55,36 +26,36 @@ def demosaic_image(image, model):
 
     # initiate array of same shape as image but with 3 channels
     demosaic_img = np.zeros((image.shape[0], image.shape[1], 3))
+
     for i in range(2, image.shape[0] - 2):
         for j in range(2, image.shape[1] - 2):
             # generate patches of size 5x5
-            patch = generate_mosaic_patch_2d(5, image, i, j)
+            patch = generate_mosaic_patch_greyscale(image, i, j)
             flat_patch = np.reshape(patch, (1, 25))
 
-            # 4 patch cases based on pixel location and rggb bayer pattern
             if i % 2 == 0 and j % 2 == 0:
-                # both even, green pixel in blue row, predict the red and blue channels
+                # both even, red pixel
+                demosaic_img[i, j, 0] = image[i, j]
+                demosaic_img[i, j, 1] = np.dot(a_g_r, flat_patch)
+                demosaic_img[i, j, 2] = np.dot(a_b_r, flat_patch)
+
+            if i % 2 == 0 and j % 2 == 1:
+                # even x, odd y, green pixel in red row
+                demosaic_img[i, j, 0] = np.dot(a_r_gr, flat_patch)
+                demosaic_img[i, j, 1] = image[i, j]
+                demosaic_img[i, j, 2] = np.dot(a_b_gr, flat_patch)
+
+            if i % 2 == 1 and j % 2 == 0:
+                # odd x, even y, green pixel in blue row
                 demosaic_img[i, j, 0] = np.dot(a_r_gb, flat_patch)
                 demosaic_img[i, j, 1] = image[i, j]
                 demosaic_img[i, j, 2] = np.dot(a_b_gb, flat_patch)
 
             if i % 2 == 1 and j % 2 == 1:
-                # both odd, green pixel in red row, predict the red and blue channels
-                demosaic_img[i, j, 0] = np.dot(a_r_gr, flat_patch)
-                demosaic_img[i, j, 1] = image[i, j]
-                demosaic_img[i, j, 2] = np.dot(a_b_gr, flat_patch)
-
-            if i % 2 == 0 and j % 2 == 1:
-                # blue pixel, predict the green and blue channels
+                # both odd, blue pixel
                 demosaic_img[i, j, 0] = np.dot(a_r_b, flat_patch)
                 demosaic_img[i, j, 1] = np.dot(a_g_b, flat_patch)
-                demosaic_img[i, j, 3] = image[i, j]
-
-            if i % 2 == 1 and j % 2 == 0:
-                # red pixel, predict the green and red channels
-                demosaic_img[i, j, 0] = image[i, j]
-                demosaic_img[i, j, 1] = np.dot(a_g_r, flat_patch)
-                demosaic_img[i, j, 2] = np.dot(a_b_r, flat_patch)
+                demosaic_img[i, j, 2] = image[i, j]
 
     return demosaic_img
 
@@ -124,7 +95,7 @@ def main():
     img_array = np.array(training_images)
 
     # train model
-    # model = train_model([img_array])
+    # train_model([img_array])
 
     # load model from csv file
     model = load_model_from_csv()
@@ -137,7 +108,7 @@ def main():
     # plot the original image and the filtered image
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(test_image, cmap='gray')
-    ax[1].imshow(demosaic_image)
+    ax[1].imshow(demosaic_img)
     plt.show()
 
     return

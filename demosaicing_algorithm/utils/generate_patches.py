@@ -89,7 +89,7 @@ def _bggr(image: np.ndarray, x: int, y: int):
 
 
 def generate_mosaic_patch_rgb(image: np.ndarray, x: int, y: int):
-    """Generates a patch of size 'size' around the pixel at (x, y) based on the x and y coordinates.
+    """Generates a patch of size 'PATCH_SIZE' around the pixel at (x, y) based on the x and y coordinates.
 
     Args:
         size (int): Size of the patch.
@@ -98,7 +98,7 @@ def generate_mosaic_patch_rgb(image: np.ndarray, x: int, y: int):
         y (int): Y coordinate of the pixel.
 
     Returns:
-        np.ndarray: Patch of size 'size' around the pixel at (x, y).
+        np.ndarray: Patch of size 'PATCH_SIZE' around the pixel at (x, y).
     """
 
     if x % 2 == 0 and y % 2 == 0:
@@ -109,5 +109,28 @@ def generate_mosaic_patch_rgb(image: np.ndarray, x: int, y: int):
         patch = _gbrg(image, x, y)
     elif x % 2 == 1 and y % 2 == 1:
         patch = _bggr(image, x, y)
+
+    return patch
+
+
+def generate_mosaic_patch_greyscale(image: np.ndarray, x: int, y: int):
+    """Generates a patch of size 'PATCH_SIZE' around the pixel at (x, y) based on the x and y coordinates.
+
+    Args:
+        size (int): Size of the patch.
+        image (np.ndarray): Image to generate the patch from.
+        x (int): X coordinate of the pixel.
+        y (int): Y coordinate of the pixel.
+
+    Returns:
+        np.ndarray: Patch of size 'PATCH_SIZE' around the pixel at (x, y).
+    """
+
+    patch = np.zeros((PATCH_SIZE, PATCH_SIZE))
+
+    for i in range(PATCH_SIZE):
+        for j in range(PATCH_SIZE):
+            patch[i, j] = image[x - PATCH_SIZE//2 + i,
+                                y - PATCH_SIZE//2 + j]
 
     return patch
