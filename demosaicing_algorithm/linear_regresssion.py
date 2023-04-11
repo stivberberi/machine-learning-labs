@@ -1,34 +1,5 @@
+from utils.generate_patches import generate_mosaic_patch_rgb
 import numpy as np
-
-
-def generate_mosaic_patch(size: int, image: np.ndarray, x: int, y: int):
-    """Generates a patch of size x around the pixel at (x, y).
-
-    Args:
-        size (int): Size of the patch.
-        image (np.ndarray): Image to generate the patch from.
-        x (int): X coordinate of the pixel.
-        y (int): Y coordinate of the pixel.
-
-    Returns:
-        np.ndarray: Patch of size x around the pixel at (x, y).
-    """
-    patch = np.zeros((size, size))
-    for i in range(size):
-        for j in range(size):
-            if i % 2 == 0 and j % 2 == 0:
-                patch[i, j] = image[x - size//2 + i,
-                                    y - size//2 + j, 1]    # green
-            if i % 2 == 1 and j % 2 == 1:
-                patch[i, j] = image[x - size//2 + i,
-                                    y - size//2 + j, 1]    # green
-            if i % 2 == 0 and j % 2 == 1:
-                patch[i, j] = image[x - size//2 +
-                                    i, y - size//2 + j, 2]    # blue
-            if i % 2 == 1 and j % 2 == 0:
-                patch[i, j] = image[x - size//2 +
-                                    i, y - size//2 + j, 0]    # red
-    return patch
 
 
 def generate_training_data(images: list):
@@ -51,38 +22,40 @@ def generate_training_data(images: list):
     y_gb, y_gr, y_r, y_b = np.empty((1, 1)), np.empty(
         (1, 1)), np.empty((1, 1)), np.empty((1, 1))
 
-    for image in images:
+    for count, image in enumerate(images):
+        print(
+            f'Generating training data for image {count + 1} of {len(images)}')
         # loop through x,y coords but leave 2 pixels on each side for padding
-        for i in range(2, image.shape[0] - 2):
-            for j in range(2, image.shape[1] - 2):
+        for x in range(2, image.shape[0] - 2):
+            for y in range(2, image.shape[1] - 2):
                 # generate patches of size 5x5
-                patch = generate_mosaic_patch(5, image, i, j)
+                patch = generate_mosaic_patch(image, x, y)
                 flat_patch = np.reshape(patch, (1, 25))
 
                 # 4 patch cases based on pixel location and rggb bayer pattern
-                if i % 2 == 0 and j % 2 == 0:
+                if x % 2 == 0 and y % 2 == 0:
 
                     # both even, green pixel in blue row
                     x_gb = np.vstack((x_gb, flat_patch))
-                    y_gb = np.vstack((y_gb, np.array([[image[i, j, 1]]])))
-
-                if i % 2 == 1 and j % 2 == 1:
+                    t_r_gb = np.vstack((y_gb, np.array([[image[x, y, 1]]])))
+                    t_b_gb
+                if x % 2 == 1 and y % 2 == 1:
 
                     # both odd, green pixel in red row
                     x_gr = np.vstack((x_gr, flat_patch))
-                    y_gr = np.vstack((y_gr, np.array([[image[i, j, 1]]])))
+                    y_gr = np.vstack((y_gr, np.array([[image[x, y, 1]]])))
 
-                if i % 2 == 0 and j % 2 == 1:
+                if x % 2 == 0 and y % 2 == 1:
 
                     # even row, odd column, blue pixel
                     x_b = np.vstack((x_b, flat_patch))
-                    y_b = np.vstack((y_b, np.array([[image[i, j, 2]]])))
+                    y_b = np.vstack((y_b, np.array([[image[x, y, 2]]])))
 
-                if i % 2 == 1 and j % 2 == 0:
+                if x % 2 == 1 and y % 2 == 0:
 
                     # odd row, even column, red pixel
                     x_r = np.vstack((x_r, flat_patch))
-                    y_r = np.vstack((y_r, np.array([[image[i, j, 0]]])))
+                    y_r = np.vstack((y_r, np.array([[image[x, y, 0]]])))
 
     # remove the first row of zeros
     x_gb, x_gr, x_r, x_b = x_gb[1:, :], x_gr[1:, :], x_r[1:, :], x_b[1:, :]
@@ -108,17 +81,24 @@ def train_model(images: list):
     # green predictor coefficients
     a_g_r = np.matmul(np.linalg.inv(np.matmul(x_r.T, x_r)),
                       np.matmul(x_r.T, y_r))
-    a_g_b = np.linalg.lstsq(x_b, y_b, rcond=None)[0]
+    a_g_b = np.matmul(np.linalg.inv(np.matmul(x_b.T, x_b)),
+                      np.matmul(x_b.T, y_b))
 
     # blue predictor coefficients
-    a_b_gb = np.linalg.lstsq(x_gb, y_gb, rcond=None)[0]
-    a_b_gr = np.linalg.lstsq(x_gr, y_gr, rcond=None)[0]
-    a_b_r = np.linalg.lstsq(x_r, y_r, rcond=None)[0]
+    a_b_gb = np.matmul(np.linalg.inv(np.matmul(x_gb.T, x_gb)),
+                       np.matmul(x_gb.T, y_gb))
+    a_b_gr = np.matmul(np.linalg.inv(np.matmul(x_gr.T, x_gr)),
+                       np.matmul(x_gr.T, y_gr))
+    a_b_r = np.matmul(np.linalg.inv(np.matmul(x_r.T, x_r)),
+                      np.matmul(x_r.T, y_r))
 
     # red predictor coefficients
-    a_r_gb = np.linalg.lstsq(x_gb, y_gb, rcond=None)[0]
-    a_r_gr = np.linalg.lstsq(x_gr, y_gr, rcond=None)[0]
-    a_r_b = np.linalg.lstsq(x_b, y_b, rcond=None)[0]
+    a_r_gb = np.matmul(np.linalg.inv(np.matmul(x_gb.T, x_gb)),
+                       np.matmul(x_gb.T, y_gb))
+    a_r_gr = np.matmul(np.linalg.inv(np.matmul(x_gr.T, x_gr)),
+                       np.matmul(x_gr.T, y_gr))
+    a_r_b = np.matmul(np.linalg.inv(np.matmul(x_b.T, x_b)),
+                      np.matmul(x_b.T, y_b))
 
     # write coefficients as columns in a csv file with variable as header
     with open('coefficients.csv', 'w') as f:
