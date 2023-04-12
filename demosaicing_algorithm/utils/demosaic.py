@@ -1,4 +1,5 @@
-from generate_patches import generate_mosaic_patch_greyscale
+import numpy as np
+from utils.generate_patches import generate_mosaic_patch_greyscale
 
 
 def demosaic_image(image, model):
