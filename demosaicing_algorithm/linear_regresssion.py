@@ -1,5 +1,6 @@
 from utils.generate_patches import generate_mosaic_patch_rgb
 import numpy as np
+from datetime import datetime
 
 
 def generate_training_data(images: list):
@@ -24,7 +25,7 @@ def generate_training_data(images: list):
 
     for count, image in enumerate(images):
         print(
-            f'Generating training data for image {count + 1} of {len(images)}')
+            f'Generating training data for image {count + 1} of {len(images)} [{datetime.now().strftime("%H:%M:%S")}]')
         # loop through x,y coords but leave 2 pixels on each side for padding
         for x in range(2, image.shape[0] - 2):
             for y in range(2, image.shape[1] - 2):
@@ -79,21 +80,13 @@ def train_model(images: list):
 
     # get coefficient matrices (8) using linear regression
     # naming scheme is a_<pixel>_<source> where pixel is the colour it is trying to predict and source is the X matrix
-    # green predictor coefficients
+    print('Training green coefficients...')
     a_g_r = np.matmul(np.matmul(np.linalg.inv(
         np.matmul(x_r.T, x_r)), x_r.T), t_g_r)
     a_g_b = np.matmul(np.matmul(np.linalg.inv(
         np.matmul(x_b.T, x_b)), x_b.T), t_g_b)
 
-    # red predictor coefficients
-    a_r_gb = np.matmul(np.matmul(np.linalg.inv(
-        np.matmul(x_gb.T, x_gb)), x_gb.T), t_r_gb)
-    a_r_gr = np.matmul(np.matmul(np.linalg.inv(
-        np.matmul(x_gr.T, x_gr)), x_gr.T), t_r_gr)
-    a_r_b = np.matmul(np.matmul(np.linalg.inv(
-        np.matmul(x_b.T, x_b)), x_b.T), t_r_b)
-
-    # blue predictor coefficients
+    print('Training blue coefficients...')
     a_b_gb = np.matmul(np.matmul(np.linalg.inv(
         np.matmul(x_gb.T, x_gb)), x_gb.T), t_b_gb)
     a_b_gr = np.matmul(np.matmul(np.linalg.inv(
@@ -101,8 +94,16 @@ def train_model(images: list):
     a_b_r = np.matmul(np.matmul(np.linalg.inv(
         np.matmul(x_r.T, x_r)), x_r.T), t_b_r)
 
+    print('Training red coefficients...')
+    a_r_gb = np.matmul(np.matmul(np.linalg.inv(
+        np.matmul(x_gb.T, x_gb)), x_gb.T), t_r_gb)
+    a_r_gr = np.matmul(np.matmul(np.linalg.inv(
+        np.matmul(x_gr.T, x_gr)), x_gr.T), t_r_gr)
+    a_r_b = np.matmul(np.matmul(np.linalg.inv(
+        np.matmul(x_b.T, x_b)), x_b.T), t_r_b)
+
     # write coefficients as columns in a csv file with variable as header
-    with open('coefficients.csv', 'w') as f:
+    with open('coefficients1.csv', 'w') as f:
         f.write('a_g_r,a_g_b,a_b_gb,a_b_gr,a_b_r,a_r_gb,a_r_gr,a_r_b\n')
         for i in range(25):
             f.write(
